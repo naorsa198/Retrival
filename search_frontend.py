@@ -2,7 +2,7 @@ import math
 from collections import Counter
 import pandas as pd
 from flask import Flask, request, jsonify
-from inverted_index_colab import InvertedIndex as bodyINV, MultiFileReader
+from inverted_index_gcp import InvertedIndex as bodyINV, MultiFileReader
 from inverted_index_title_colab import InvertedIndex as inverted_index_title
 from B25 import BM25_from_index
 
@@ -30,6 +30,11 @@ with open(pv_clean, 'rb') as f:
 
 df = pd.read_csv('pageRank.csv')
 df.columns = ['doc_id','rank']
+
+# create b25 before
+
+bm25_body = BM25_from_index(inverted)
+
 
 class MyFlaskApp(Flask):
     def run(self, host=None, port=None, debug=None, **options):
@@ -68,7 +73,6 @@ def search():
         return jsonify(res)
     # BEGIN SOLUTION
     # collecting docs that query's words appear in
-    bm25_body = BM25_from_index(inverted)
     bm25_queries_score_train_body = bm25_body.search(tokenized_query)
     resSorted = sorted(bm25_queries_score_train_body, key=lambda tup: tup[1], reverse=True)
     resSorted = resSorted[0:100]
