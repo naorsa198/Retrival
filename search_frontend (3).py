@@ -4,6 +4,8 @@ import pandas as pd
 from flask import Flask, request, jsonify
 from inverted_index_colab import InvertedIndex as bodyINV, MultiFileReader
 from inverted_index_title_colab import InvertedIndex as inverted_index_title
+from B25 import BM25_from_index
+
 import pickle
 import re
 import nltk
