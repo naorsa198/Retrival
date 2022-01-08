@@ -18,6 +18,7 @@ pv_clean = '/content/pageviewsC.pkl'
 # inverted = bodyINV.read_index('.', 'index')
 inverted_index_title = inverted_index_title.read_index('/content/postings_gcp_titles/postings_gcp','title_index')
 
+print(inverted.term_total['data'])
 # pv_clean = 'pageviewsC.pkl'
 with open(pv_clean, 'rb') as f:
   wid2pv = pickle.loads(f.read())
@@ -65,72 +66,13 @@ def search():
         return jsonify(res)
     # BEGIN SOLUTION
     # collecting docs that query's words appear in
-    query_binary_similarity = {}
-    for word in tokenized_query:
-        try:
-            posting_lst = read_posting_list(inverted_index_title, word)
-            if len(posting_lst) > 0:
-                for doc in posting_lst:
-                    if doc[0] in query_binary_similarity:
-                        query_binary_similarity[doc[0]] += 1
-                    else:
-                        query_binary_similarity[doc[0]] = 1
-        except:
-            pass
-    sorted_query_similarity = {k: v for k, v in
-                               sorted(query_binary_similarity.items(), key=lambda item: item[1], reverse=True)}
-    #------------------------------------------------------------------------body--------------------------------------------------------
-    body = []
-    cosimiMone = {}
-    tokenized_query = token_query(query)
-    if len(tokenized_query) == 0:
-        return jsonify([])
-    word_weight_in_query = {}
-    cosinesim = {}
-    word_appearance_in_query = Counter(tokenized_query)
-    for word in word_appearance_in_query:
-        word_weight_in_query[word] = word_appearance_in_query[word] / len(tokenized_query)
-
-    # create the mona of the cosinsimilarity for each doc that have word from the query
-    query_Dom = 0
-    for word, weigth in word_weight_in_query.items():
-        query_Dom = query_Dom + math.pow(weigth, 2)
-        try:
-          postlist = read_posting_list(inverted, word)
-          for doc_id, dfi in postlist:
-              cosimiMone[doc_id] = cosimiMone.get(doc_id, 0) + ((dfi / inverted.DL[doc_id]) * weigth)
-        except:
-          pass
-    # make all the cosinsimilarity for each doc
-    query_Dom_sqr = math.sqrt(query_Dom)
-    resSorted = []
-    for doc_id, mona in cosimiMone.items():
-        dominator = math.sqrt(inverted.tfidf_dom[doc_id]*query_Dom)
-        resultSimiliarirt = cosimiMone[doc_id] / dominator
-        var = (doc_id, resultSimiliarirt)
-        resSorted.append(var)
-
-    resSorted = sorted(resSorted, key=lambda tup: tup[1], reverse=True)
+    bm25_body = BM25_from_index(inverted)
+    bm25_queries_score_train_body = bm25_body.search(tokenized_query)
+    resSorted = sorted(bm25_queries_score_train_body, key=lambda tup: tup[1], reverse=True)
     resSorted = resSorted[0:100]
-    # ------------------------------------------------------------------------------------put together title and body-----------------------
-
-    joinDic = {}
-    for (doc_id, sim) in resSorted:
-        joinDic[doc_id] = sim*0.85+sorted_query_similarity.get(doc_id,0)*0.15
-    joinList = list(joinDic.items())
-    joinList = sorted(resSorted,key=lambda tup: tup[1], reverse=True)
-
-    joinList= joinList[0:100]
-    finalList = [ (doc_id,inverted.id_to_title[doc_id])for doc_id, cs in joinList]
-    retAfterPageRank = []
-    index = 0
-    for doc_id,title in finalList:
-        x = df.loc[df['doc_id']==int(doc_id)]
-        y = x['rank'].values
-        if(y>1.5 or index<30 ):
-          retAfterPageRank.append((doc_id,title))
-        index +=1
-    return jsonify(retAfterPageRank)
+    print(resSorted)
+    res = [(str(doc_id), inverted.id_to_title[doc_id]) for doc_id, cs in resSorted]
+    return jsonify(res)
 
 
 
