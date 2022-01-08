@@ -4,6 +4,9 @@ import time
 import numpy as np
 
 # When preprocessing the data have a dictionary of document length for each document saved in a variable called `DL`.
+from inverted_index_colab import MultiFileReader
+
+
 class BM25_from_index:
     """
     Best Match 25.
@@ -21,7 +24,6 @@ class BM25_from_index:
         self.index = index
         self.N = len(index.DL)
         self.AVGDL = sum(index.DL.values()) / self.N
-        self.words, self.pls = zip(*self.index.posting_lists_iter())
 
     def calc_idf(self, list_of_tokens):
         """
@@ -70,7 +72,7 @@ class BM25_from_index:
         dic = {}
         mylist = []
         terms = queries
-        candidates = get_candidate_documents(terms, self.index, self.words, self.pls)
+        candidates = get_candidate_documents(terms, self.index)
         for doc_id in candidates:
             scoredoc = self._score(terms, doc_id)
             mylist.append((doc_id, scoredoc))
@@ -98,16 +100,20 @@ class BM25_from_index:
 
         for term in query:
             if term in self.index.posting_locs.keys():
-                term_frequencies = dict(self.pls[self.words.index(term)])
-                if doc_id in term_frequencies.keys():
-                    freq = term_frequencies[doc_id]
-                    numerator = self.idf[term] * freq * (self.k1 + 1)
-                    denominator = freq + self.k1 * (1 - self.b + self.b * doc_len / self.AVGDL)
-                    score += (numerator / denominator)
+                 try:
+                    term_frequencies = read_posting_list(self.index,term)
+                    term_frequenciesdict = dict(term_frequencies)
+                    if doc_id in term_frequenciesdict.keys():
+                        freq = term_frequencies[doc_id]
+                        numerator = self.idf[term] * freq * (self.k1 + 1)
+                        denominator = freq + self.k1 * (1 - self.b + self.b * doc_len / self.AVGDL)
+                        score += (numerator / denominator)
+                 except:
+                    pass
         return score
 
 
-def get_candidate_documents(query_to_search, index, words, pls):
+def get_candidate_documents(query_to_search,index):
     """
     Generate a dictionary representing a pool of candidate documents for a given query.
 
@@ -127,8 +133,25 @@ def get_candidate_documents(query_to_search, index, words, pls):
     """
     candidates = []
     for term in np.unique(query_to_search):
-        if term in words:
-            current_list = (pls[words.index(term)])
+        try:
+            current_list = read_posting_list(index,term)
             candidates += current_list
+        except:
+            pass
     candi = [tup[0] for tup in candidates]
     return np.unique(candi)
+
+TUPLE_SIZE = 6
+TF_MASK = 2 ** 16 - 1 # Masking the 16 low bits of an integer
+from contextlib import closing
+
+def read_posting_list(inverted, w):
+  with closing(MultiFileReader()) as reader:
+    locs = inverted.posting_locs[w]
+    b = reader.read(locs, inverted.df[w] * TUPLE_SIZE)
+    posting_list = []
+    for i in range(inverted.df[w]):
+      doc_id = int.from_bytes(b[i*TUPLE_SIZE:i*TUPLE_SIZE+4], 'big')
+      tf = int.from_bytes(b[i*TUPLE_SIZE+4:(i+1)*TUPLE_SIZE], 'big')
+      posting_list.append((doc_id, tf))
+    return posting_list
