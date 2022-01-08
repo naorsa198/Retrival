@@ -22,7 +22,12 @@ inverted_index_title = inverted_index_title.read_index('/content/postings_gcp_ti
 with open(pv_clean, 'rb') as f:
   wid2pv = pickle.loads(f.read())
 
-print(len(wid2pv))
+
+# create pagerank before query
+
+df = pd.read_csv('pageRank.csv')
+df.columns = ['doc_id','rank']
+
 class MyFlaskApp(Flask):
     def run(self, host=None, port=None, debug=None, **options):
         super(MyFlaskApp, self).run(host=host, port=port, debug=debug, **options)
@@ -111,13 +116,21 @@ def search():
 
     joinDic = {}
     for (doc_id, sim) in resSorted:
-        joinDic[doc_id] = sim*0.65+sorted_query_similarity.get(doc_id,0)*0.35
+        joinDic[doc_id] = sim*0.85+sorted_query_similarity.get(doc_id,0)*0.15
     joinList = list(joinDic.items())
     joinList = sorted(resSorted,key=lambda tup: tup[1], reverse=True)
 
     joinList= joinList[0:100]
     finalList = [ (doc_id,inverted.id_to_title[doc_id])for doc_id, cs in joinList]
-    return jsonify(finalList)
+    retAfterPageRank = []
+    index = 0
+    for doc_id,title in finalList:
+        x = df.loc[df['doc_id']==int(doc_id)]
+        y = x['rank'].values
+        if(y>1.5 or index<30 ):
+          retAfterPageRank.append((doc_id,title))
+        index +=1
+    return jsonify(retAfterPageRank)
 
 
 
@@ -309,14 +322,10 @@ def get_pagerank():
     # wiki_ids = wiki_ids.replace(']','')
     # wiki_ids = wiki_ids.split(',')
     wiki_ids = request.get_json()
-    print(wiki_ids)
-    print(type(wiki_ids))
-    print(wiki_ids)
     if len(wiki_ids) == 0:
       return jsonify(res)
     # BEGIN SOLUTION
-    df = pd.read_csv('pageRank.csv')
-    df.columns = ['doc_id','rank']
+
     print(df.head())
     for doc_id in wiki_ids:
         x = df.loc[df['doc_id']==int(doc_id)]
