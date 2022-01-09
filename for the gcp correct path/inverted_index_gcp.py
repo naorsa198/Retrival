@@ -15,7 +15,7 @@ from collections import defaultdict
 from contextlib import closing
 import numpy as np
 
-path = "/content/postings_gcp/"
+path = "//home/naorsa/postings_gcp_body/postings_gcp/"
 
 # Let's start with a small block size of 30 bytes just to test things out. 
 BLOCK_SIZE = 1999998

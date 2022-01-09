@@ -177,16 +177,24 @@ TUPLE_SIZE = 6
 TF_MASK = 2 ** 16 - 1 # Masking the 16 low bits of an integer
 from contextlib import closing
 
+
 def read_posting_list(inverted, w):
   with closing(MultiFileReader()) as reader:
     locs = inverted.posting_locs[w]
-    b = reader.read(locs, inverted.df[w] * TUPLE_SIZE)
+    try:
+        b = reader.read(locs, inverted.df[w] * TUPLE_SIZE)
+    except:
+        return []
     posting_list = []
     for i in range(inverted.df[w]):
       doc_id = int.from_bytes(b[i*TUPLE_SIZE:i*TUPLE_SIZE+4], 'big')
       tf = int.from_bytes(b[i*TUPLE_SIZE+4:(i+1)*TUPLE_SIZE], 'big')
       posting_list.append((doc_id, tf))
     return posting_list
+
+
+
+
 
 
 

@@ -13,14 +13,18 @@ from contextlib import closing
 
 def read_posting_list(inverted, w):
   with closing(MultiFileReader()) as reader:
-    locs = inverted.posting_locs[w]
-    b = reader.read(locs, inverted.df[w] * TUPLE_SIZE)
-    posting_list = []
-    for i in range(inverted.df[w]):
-      doc_id = int.from_bytes(b[i*TUPLE_SIZE:i*TUPLE_SIZE+4], 'big')
-      tf = int.from_bytes(b[i*TUPLE_SIZE+4:(i+1)*TUPLE_SIZE], 'big')
-      posting_list.append((doc_id, tf))
+    try:
+        locs = inverted.posting_locs[w]
+        b = reader.read(locs, inverted.df[w] * TUPLE_SIZE)
+        posting_list = []
+        for i in range(inverted.df[w]):
+          doc_id = int.from_bytes(b[i*TUPLE_SIZE:i*TUPLE_SIZE+4], 'big')
+          tf = int.from_bytes(b[i*TUPLE_SIZE+4:(i+1)*TUPLE_SIZE], 'big')
+          posting_list.append((doc_id, tf))
+    except:
+          pass
     return posting_list
+
 
 
 class BM25:
