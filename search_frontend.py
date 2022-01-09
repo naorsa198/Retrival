@@ -33,7 +33,6 @@ df.columns = ['doc_id','rank']
 
 # create b25 before
 
-bm25_body = BM25_from_index(inverted)
 
 
 class MyFlaskApp(Flask):
@@ -73,11 +72,32 @@ def search():
         return jsonify(res)
     # BEGIN SOLUTION
     # collecting docs that query's words appear in
-    bm25_queries_score_train_body = bm25_body.search(tokenized_query)
-    resSorted = sorted(bm25_queries_score_train_body, key=lambda tup: tup[1], reverse=True)
-    resSorted = resSorted[0:100]
-    print(resSorted)
-    res = [(str(doc_id), inverted.id_to_title[doc_id]) for doc_id, cs in resSorted]
+    # bm25_queries_score_train_body = bm25_body.search(tokenized_query)
+    # resSorted = sorted(bm25_queries_score_train_body, key=lambda tup: tup[1], reverse=True)
+    # resSorted = resSorted[0:100]
+    # print(resSorted)
+    # res = [(str(doc_id), inverted.id_to_title[doc_id]) for doc_id, cs in resSorted]
+    bm25_body = BM25(inverted,tokenized_query);
+
+    scores = bm25_body.score_calc_per_candidate()
+    sort_list = sorted(scores.items(), key=lambda item: item[1], reverse=True)
+    doc_list = [tup[0] for tup in sort_list]
+
+    i = 0
+    for (doc_id,score) in sort_list:
+        if i >= 100:
+            break
+        res.append((doc_id, inverted.id_to_title[doc_id]))
+        i += 1
+
+    if i < 100:
+        for doc_id in inverted.DL:
+            if i >= 100:
+                break
+            if doc_id not in doc_list:
+                res.append((doc_id, inverted.id_to_title[doc_id]))
+            i += 1
+
     return jsonify(res)
 
 
