@@ -12,18 +12,20 @@ from contextlib import closing
 
 
 def read_posting_list(inverted, w):
-  with closing(MultiFileReader()) as reader:
-    try:
+    with closing(MultiFileReader()) as reader:
         locs = inverted.posting_locs[w]
-        b = reader.read(locs, inverted.df[w] * TUPLE_SIZE)
+        try:
+            b = reader.read(locs, inverted.df[w] * TUPLE_SIZE)
+        except:
+            return []
         posting_list = []
         for i in range(inverted.df[w]):
-          doc_id = int.from_bytes(b[i*TUPLE_SIZE:i*TUPLE_SIZE+4], 'big')
-          tf = int.from_bytes(b[i*TUPLE_SIZE+4:(i+1)*TUPLE_SIZE], 'big')
-          posting_list.append((doc_id, tf))
-    except:
-          pass
-    return posting_list
+            doc_id = int.from_bytes(b[i * TUPLE_SIZE:i * TUPLE_SIZE + 4], 'big')
+            tf = int.from_bytes(b[i * TUPLE_SIZE + 4:(i + 1) * TUPLE_SIZE], 'big')
+            posting_list.append((doc_id, tf))
+        return posting_list
+
+
 
 
 
@@ -128,9 +130,13 @@ class BM25:
                         continue
             if term in self.idf_dic:
                 if curr_tf != "":
+                    try:
+                        doc_len = self.inverted.DL[id_doc]
+                    except:
+                        doc_len = self.Avg_doc_len
                     score += ((self.idf_dic[term]) * curr_tf * (self.k1 + 1)) / (
                             curr_tf + self.k1 * (
-                            1 - self.b + ((self.b * self.inverted.DL[id_doc]) / self.Avg_doc_len)))
+                            1 - self.b + ((self.b * doc_len) / self.Avg_doc_len)))
         return score
 
     def create_tf(self):

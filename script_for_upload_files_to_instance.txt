@@ -1,9 +1,27 @@
-$ gsutil cp gs://ass3075715781/pr/pageviewsC.pkl pageviewsC.pkl
+gsutil cp gs://ass3075715781/pr/pageviewsC.pkl pageviewsC.pkl
 
 
 #bring all titles postinglist  from bucket
+
 !mkdir postings_gcp_titles
-!gsutil -m cp -r gs://title305715781/postings_gcp "postings_gcp_titles/" 
+gsutil -m cp -r gs://ass3075715781/postings_gcp_titles postings_gcp_titles
 
 
-gsutil cp gs://ass3075715781/pr/part-00000-3a42264c-05df-4675-97eb-a147e8ce7a57-c000.csv.gz" 
+# bring body posting gcp
+!mkdir postings_gcp_body
+gsutil -m cp -r gs://ass3075715781/postings_gcp postings_gcp_body
+
+
+
+bring the PageRank from bucket 
+gsutil cp gs://ass3075715781/pr/part-00000-3a42264c-05df-4675-97eb-a147e8ce7a57-c000.csv.gz part-00000-3a42264c-05df-4675-97eb-a147e8ce7a57-c000.csv.gz
+#unzip the pagerank file
+!gzip -d "/content/part-00000-3a42264c-05df-4675-97eb-a147e8ce7a57-c000.csv.gz"
+
+for the gcp :
+!gzip -d "/home/naorsa/part-00000-3a42264c-05df-4675-97eb-a147e8ce7a57-c000.csv"
+!mv /home/naorsa/part-00000-3a42264c-05df-4675-97eb-a147e8ce7a57-c000.csv /home/naorsa/pageRank.csv
+
+# change name to file to pageRank.csv
+!mv /content/part-00000-3a42264c-05df-4675-97eb-a147e8ce7a57-c000.csv /content/pageRank.csv
+
