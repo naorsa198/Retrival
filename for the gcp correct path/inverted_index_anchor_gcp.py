@@ -1,4 +1,3 @@
-import pyspark
 import sys
 from collections import Counter, OrderedDict
 import itertools
@@ -13,8 +12,10 @@ import pickle
 from google.cloud import storage
 from collections import defaultdict
 from contextlib import closing
+import numpy as np
 
 BLOCK_SIZE = 1999998
+path = "/home/naorsa/postings_gcp_anchor/postings_gcp"
 
 class MultiFileWriter:
     """ Sequential binary writer to multiple files of up to BLOCK_SIZE each. """
@@ -67,10 +68,10 @@ class MultiFileReader:
         b = []
         for f_name, offset in locs:
             if f_name not in self._open_files:
-                self._open_files[f_name] = open(f_name, 'rb')
+                self._open_files[f_name] = open(path + f_name, 'rb')
             f = self._open_files[f_name]
             f.seek(offset)
-            n_read = min(n_bytes, BLOCK_SIZE - offset)
+            n_read = np.minimum(n_bytes, BLOCK_SIZE - offset)
             b.append(f.read(n_read))
             n_bytes -= n_read
         return b''.join(b)
@@ -98,10 +99,15 @@ class InvertedIndex:
           docs: dict mapping doc_id to list of tokens
         """
         self.id_to_title = {}
-        self.df = Counter()                     # per term
-        self.term_total = Counter()             # stores total frequency per term
-        self._posting_list = defaultdict(list)  # stores posting list per term while building the index (internally), otherwise too big to store in memory.
-        self.posting_locs = defaultdict(list)   # mapping a term to posting file locations, which is a list of (file_name, offset) pairs.
+
+        self.df = Counter()
+
+
+        self.term_total = Counter()
+
+        self._posting_list = defaultdict(list)
+
+        self.posting_locs = defaultdict(list)
 
         for doc_id, tokens in docs.items():
             self.add_doc(doc_id, tokens)

@@ -4,6 +4,9 @@ import pandas as pd
 from flask import Flask, request, jsonify
 from inverted_index_gcp import InvertedIndex as bodyINV, MultiFileReader
 from inverted_index_title_colab import InvertedIndex as inverted_index_title
+from inverted_index_anchor_gcp import InvertedIndex as inverted_index_anchor
+from inverted_index_anchor_gcp import InvertedIndex as inverted_index_anchor
+
 from BM25 import BM25
 
 import pickle
@@ -20,6 +23,7 @@ pv_clean = '/home/naorsa/pageviewsC.pkl'
 # inverted = bodyINV.read_index('.', 'index')
 inverted_index_title = inverted_index_title.read_index(
     '/home/naorsa/postings_gcp_titles/postings_gcp_titles/postings_gcp', 'title_index')
+inverted_index_ancor =inverted_index_anchor.read_index('/home/naorsa/postings_gcp_anchor/postings_gcp', 'anchor_index')
 
 # pv_clean = 'pageviewsC.pkl'
 with open(pv_clean, 'rb') as f:
@@ -284,8 +288,29 @@ def search_anchor():
     query = request.args.get('query', '')
     if len(query) == 0:
         return jsonify(res)
-    # BEGIN SOLUTION
+
     tokenized_query = token_query(query)
+    if len(tokenized_query) == 0:
+        return jsonify(res)
+    # BEGIN SOLUTION
+    # collecting docs that query's words appear in
+    query_binary_similarity = {}
+    for word in tokenized_query:
+        posting_lst = read_posting_list(inverted_index_title, word)
+        if len(posting_lst) > 0:
+            for doc in posting_lst:
+                if doc[0] in query_binary_similarity:
+                    query_binary_similarity[doc[0]] += 1
+                else:
+                    query_binary_similarity[doc[0]] = 1
+
+    if len(query_binary_similarity) == 0:
+        return jsonify(res)
+
+    sorted_query_similarity = {k: v for k, v in
+                               sorted(query_binary_similarity.items(), key=lambda item: item[1], reverse=True)}
+    for key in sorted_query_similarity:
+        res.append((key, inverted_index_title.docTitle[key]))
 
     # END SOLUTION
     return jsonify(res)
