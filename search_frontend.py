@@ -229,22 +229,17 @@ def search_title():
         return jsonify(res)
     # BEGIN SOLUTION
     # collecting docs that query's words appear in
-    query_binary_similarity = {}
-    for word in tokenized_query:
-        posting_lst = read_posting_list(inverted_index_title, word)
-        if len(posting_lst) > 0:
-            for doc in posting_lst:
-                if doc[0] in query_binary_similarity:
-                    query_binary_similarity[doc[0]] += 1
-                else:
-                    query_binary_similarity[doc[0]] = 1
+    id_freq_dic = {}
+    for term in tokenized_query:
+        posting_list = read_posting_list(inverted_index_title, term)
+        for doc in posting_list:
+            id_freq_dic = id_freq_dic.get(doc[0], 0) += 1
 
-    if len(query_binary_similarity) == 0:
+    if len(id_freq_dic) == 0:
         return jsonify(res)
 
-    sorted_query_similarity = {k: v for k, v in
-                               sorted(query_binary_similarity.items(), key=lambda item: item[1], reverse=True)}
-    for key in sorted_query_similarity:
+    sort_by_freq = {k: v for k, v in sorted(id_freq_dic.items(), key=lambda tup: tup[1], reverse=True)}
+    for key in sort_by_freq:
         res.append((key, inverted_index_title.docTitle[key]))
 
     # END SOLUTION
@@ -279,8 +274,8 @@ def search_anchor():
     # BEGIN SOLUTION
     # collecting docs that query's words appear in
     query_binary_similarity = {}
-    for word in tokenized_query:
-        posting_lst = read_posting_list(inverted_index_title, word)
+    for term in tokenized_query:
+        posting_lst = read_posting_list(inverted_index_title, term)
         if len(posting_lst) > 0:
             for doc in posting_lst:
                 if doc[0] in query_binary_similarity:
