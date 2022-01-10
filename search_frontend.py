@@ -58,7 +58,6 @@ def search():
         project requirements (efficiency, quality, etc.). That means it is up to
         you to decide on whether to use stemming, remove stopwords, use 
         PageRank, query expansion, etc.
-
         To issue a query navigate to a URL like:
          http://YOUR_SERVER_DOMAIN/search?query=hello+world
         where YOUR_SERVER_DOMAIN is something like XXXX-XX-XX-XX-XX.ngrok.io
@@ -78,17 +77,28 @@ def search():
     if len(tokenized_query) == 0:
         return jsonify(res)
     # BEGIN SOLUTION
-    # collecting docs that query's words appear in
-    # bm25_queries_score_train_body = bm25_body.search(tokenized_query)
-    # resSorted = sorted(bm25_queries_score_train_body, key=lambda tup: tup[1], reverse=True)
-    # resSorted = resSorted[0:100]
-    # print(resSorted)
-    # res = [(str(doc_id), inverted.id_to_title[doc_id]) for doc_id, cs in resSorted]
-    bm25_body = BM25(inverted,tokenized_query);
 
+    bm25_body = BM25(inverted,tokenized_query);
     scores = bm25_body.score_calc_per_candidate()
-    sort_list = sorted(scores.items(), key=lambda item: item[1], reverse=True)
+    # sort_list = sorted(scores.items(), key=lambda item: item[1], reverse=True)
+    # doc_list = [tup[0] for tup in sort_list]
+    
+    #calculate max view of all the pages
+    max_view = 0
+    for key in scores:
+        doc_id = key
+        if doc_id in wid2pv:
+            if max_view < wid2pv[doc_id]:
+                max_view = wid2pv[doc_id]
+    
+    total_id_score = {}
+    #calculate score for each doc by bm25 and page view
+    for doc_id in scores:
+        total_id_score[doc_id] = (wid2pv.get(doc_id,0)/max_view)*0.3 + (scores[doc_id])*0.7
+    
+    sort_list = sorted(total_id_score.items(), key=lambda item: item[1], reverse=True)
     doc_list = [tup[0] for tup in sort_list]
+
 
     i = 0
     for (doc_id,score) in sort_list:
@@ -96,6 +106,7 @@ def search():
             break
         res.append((doc_id, inverted.id_to_title[doc_id]))
         i += 1
+        
 
     if i < 100:
         for doc_id in inverted.DL:
@@ -106,11 +117,7 @@ def search():
             i += 1
 
     return jsonify(res)
-
-
-
-    # END SOLUTION
-
+ 
 @app.route("/search_body")
 def search_body():
     ''' Returns up to a 100 search results for the query using TFIDF AND COSINE
