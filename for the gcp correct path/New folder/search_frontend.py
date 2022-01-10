@@ -74,67 +74,37 @@ def search():
         return jsonify(res)
     # BEGIN SOLUTION
     # collecting docs that query's words appear in
-    query_binary_similarity = {}
-    for word in tokenized_query:
-        try:
-            posting_lst = read_posting_list(inverted_index_title, word)
-            if len(posting_lst) > 0:
-                for doc in posting_lst:
-                    if doc[0] in query_binary_similarity:
-                        query_binary_similarity[doc[0]] += 1
-                    else:
-                        query_binary_similarity[doc[0]] = 1
-        except:
-            pass
-    sorted_query_similarity = {k: v for k, v in
-                               sorted(query_binary_similarity.items(), key=lambda item: item[1], reverse=True)}
-    # ------------------------------------------------------------------------body--------------------------------------------------------
-    body = []
-    cosimiMone = {}
-    tokenized_query = token_query(query)
-    if len(tokenized_query) == 0:
-        return jsonify([])
-    word_weight_in_query = {}
-    cosinesim = {}
-    word_appearance_in_query = Counter(tokenized_query)
-    for word in word_appearance_in_query:
-        word_weight_in_query[word] = word_appearance_in_query[word] / len(tokenized_query)
+    # bm25_queries_score_train_body = bm25_body.search(tokenized_query)
+    # resSorted = sorted(bm25_queries_score_train_body, key=lambda tup: tup[1], reverse=True)
+    # resSorted = resSorted[0:100]
+    # print(resSorted)
+    # res = [(str(doc_id), inverted.id_to_title[doc_id]) for doc_id, cs in resSorted]
+    bm25_body = BM25(inverted, tokenized_query);
 
-    # create the mona of the cosinsimilarity for each doc that have word from the query
-    query_Dom = 0
-    for word, weigth in word_weight_in_query.items():
-        query_Dom = query_Dom + math.pow(weigth, 2)
-        try:
-            postlist = read_posting_list(inverted, word)
-            for doc_id, dfi in postlist:
-                cosimiMone[doc_id] = cosimiMone.get(doc_id, 0) + ((dfi / inverted.DL[doc_id]) * weigth)
-        except:
-            pass
-    # make all the cosinsimilarity for each doc
-    query_Dom_sqr = math.sqrt(query_Dom)
-    resSorted = []
-    for doc_id, mona in cosimiMone.items():
-        dominator = math.sqrt(inverted.tfidf_dom[doc_id] * query_Dom)
-        resultSimiliarirt = cosimiMone[doc_id] / dominator
-        var = (doc_id, resultSimiliarirt)
-        resSorted.append(var)
+    scores = bm25_body.score_calc_per_candidate()
+    sort_list = sorted(scores.items(), key=lambda item: item[1], reverse=True)
+    doc_list = [tup[0] for tup in sort_list]
 
-    resSorted = sorted(resSorted, key=lambda tup: tup[1], reverse=True)
-    resSorted = resSorted[0:100]
-    # ------------------------------------------------------------------------------------put together title and body-----------------------
+    k = 0
+    for (doc_id, score) in sort_list:
+        if k >= 100:
+            break
+        res.append((doc_id, inverted.id_to_title[doc_id]))
+        k += 1
 
-    joinDic = {}
-    for (doc_id, sim) in resSorted:
-        joinDic[doc_id] = sim * 0.3 + sorted_query_similarity.get(doc_id, 0) * 0.7
-    joinList = list(joinDic.items())
-    joinList = sorted(resSorted, key=lambda tup: tup[1], reverse=True)
+    if k < 100:
+        for doc_id in inverted.DL:
+            if k >= 100:
+                break
+            if doc_id not in doc_list:
+                if(doc_id == 0):
+                    ress=0
+                res.append((doc_id, inverted.id_to_title[doc_id]))
+            k += 1
 
-    joinList = joinList[0:100]
-    finalList = [(doc_id, inverted.id_to_title[doc_id]) for doc_id, cs in joinList]
-    return jsonify(finalList)
+    return jsonify(res)
 
-
-# END SOLUTION
+    # END SOLUTION
 
 
 @app.route("/search_body")
@@ -264,7 +234,6 @@ def search_title():
         worst where each element is a tuple (wiki_id, title).
     '''
 
-
     res = []
     query = request.args.get('query', '')
     if len(query) == 0:
@@ -275,17 +244,22 @@ def search_title():
         return jsonify(res)
     # BEGIN SOLUTION
     # collecting docs that query's words appear in
-    id_freq_dic = {}
-    for term in tokenized_query:
-        posting_list = read_posting_list(inverted_index_title, term)
-        for doc in posting_list:
-            id_freq_dic[doc[0]] = id_freq_dic.get(doc[0], 0) + 1
+    query_binary_similarity = {}
+    for word in tokenized_query:
+        posting_lst = read_posting_list(inverted_index_title, word)
+        if len(posting_lst) > 0:
+            for doc in posting_lst:
+                if doc[0] in query_binary_similarity:
+                    query_binary_similarity[doc[0]] += 1
+                else:
+                    query_binary_similarity[doc[0]] = 1
 
-    if len(id_freq_dic) == 0:
+    if len(query_binary_similarity) == 0:
         return jsonify(res)
 
-    sort_by_freq = {k: v for k, v in sorted(id_freq_dic.items(), key=lambda tup: tup[1], reverse=True)}
-    for key in sort_by_freq:
+    sorted_query_similarity = {k: v for k, v in
+                               sorted(query_binary_similarity.items(), key=lambda item: item[1], reverse=True)}
+    for key in sorted_query_similarity:
         res.append((key, inverted_index_title.docTitle[key]))
 
     # END SOLUTION
@@ -319,21 +293,27 @@ def search_anchor():
         return jsonify(res)
     # BEGIN SOLUTION
     # collecting docs that query's words appear in
-    id_freq_dic = {}
-    for term in tokenized_query:
-        posting_list = read_posting_list(inverted_index_title, term)
-        for doc in posting_list:
-            id_freq_dic[doc[0]] = id_freq_dic.get(doc[0], 0) + 1
+    query_binary_similarity = {}
+    for word in tokenized_query:
+        posting_lst = read_posting_list(inverted_index_anchor, word)
+        if len(posting_lst) > 0:
+            for doc in posting_lst:
+                if doc[0] in query_binary_similarity:
+                    query_binary_similarity[doc[0]] += 1
+                else:
+                    query_binary_similarity[doc[0]] = 1
 
-    if len(id_freq_dic) == 0:
+    if len(query_binary_similarity) == 0:
         return jsonify(res)
 
-    sort_by_freq = {k: v for k, v in sorted(id_freq_dic.items(), key=lambda tup: tup[1], reverse=True)}
-    for key in sort_by_freq:
-        res.append((key, inverted_index_title.docTitle[key]))
+    sorted_query_similarity = {k: v for k, v in
+                               sorted(query_binary_similarity.items(), key=lambda item: item[1], reverse=True)}
+    for key in sorted_query_similarity:
+        res.append((key, inverted_index_anchor.doc_to_title[key]))
 
     # END SOLUTION
     return jsonify(res)
+
 
 @app.route("/get_pagerank", methods=['POST'])
 def get_pagerank():
