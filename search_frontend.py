@@ -325,7 +325,7 @@ def get_pagerank():
     for doc_id in wiki_ids:
         x = df.loc[df['doc_id']==int(doc_id)]
         dff = pd.DataFrame(x)
-        y = x['rank'].values
+        y = dff['rank'].values
         if(len(y)!= 0):
             res.append(y[0])
         else:
