@@ -27,7 +27,12 @@ print(inverted.term_total['data'])
 with open(pv_clean, 'rb') as f:
   wid2pv = pickle.loads(f.read())
 
-
+# pre calculate the stop words to tpkenize
+english_stopwords = frozenset(stopwords.words('english'))
+corpus_stopwords = ['category', 'references', 'also', 'links', 'extenal', 'see', 'thumb']
+RE_WORD = re.compile(r"""[\#\@\w](['\-]?\w){2,24}""", re.UNICODE)
+all_stopwords = english_stopwords.union(corpus_stopwords)
+  
 # create pagerank before query
 
 df = pd.read_csv('pageRank.csv')
@@ -166,10 +171,6 @@ def search_body():
 
 
 def token_query(query):
-    english_stopwords = frozenset(stopwords.words('english'))
-    corpus_stopwords = ['category', 'references', 'also', 'links', 'extenal', 'see', 'thumb']
-    RE_WORD = re.compile(r"""[\#\@\w](['\-]?\w){2,24}""", re.UNICODE)
-    all_stopwords = english_stopwords.union(corpus_stopwords)
     tokensQ = [token.group() for token in RE_WORD.finditer(query.lower())]
     filteredQ = [tok for tok in tokensQ if tok not in all_stopwords]
 
