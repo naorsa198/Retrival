@@ -249,7 +249,7 @@ def search_title():
     for term in tokenized_query:
         posting_list = read_posting_list(inverted_index_title, term)
         for doc in posting_list:
-            id_freq_dic[doc[0]] = id_freq_dic.get(doc[0], 0) += 1
+            id_freq_dic[doc[0]] = id_freq_dic.get(doc[0], 0) + 1
 
     if len(id_freq_dic) == 0:
         return jsonify(res)
