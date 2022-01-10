@@ -27,7 +27,12 @@ print(inverted.term_total['data'])
 with open(pv_clean, 'rb') as f:
   wid2pv = pickle.loads(f.read())
 
-
+# pre calculate the stop words to tpkenize
+english_stopwords = frozenset(stopwords.words('english'))
+corpus_stopwords = ['category', 'references', 'also', 'links', 'extenal', 'see', 'thumb']
+RE_WORD = re.compile(r"""[\#\@\w](['\-]?\w){2,24}""", re.UNICODE)
+all_stopwords = english_stopwords.union(corpus_stopwords)
+  
 # create pagerank before query
 
 df = pd.read_csv('pageRank.csv')
@@ -53,7 +58,6 @@ def search():
         project requirements (efficiency, quality, etc.). That means it is up to
         you to decide on whether to use stemming, remove stopwords, use 
         PageRank, query expansion, etc.
-
         To issue a query navigate to a URL like:
          http://YOUR_SERVER_DOMAIN/search?query=hello+world
         where YOUR_SERVER_DOMAIN is something like XXXX-XX-XX-XX-XX.ngrok.io
@@ -73,17 +77,28 @@ def search():
     if len(tokenized_query) == 0:
         return jsonify(res)
     # BEGIN SOLUTION
-    # collecting docs that query's words appear in
-    # bm25_queries_score_train_body = bm25_body.search(tokenized_query)
-    # resSorted = sorted(bm25_queries_score_train_body, key=lambda tup: tup[1], reverse=True)
-    # resSorted = resSorted[0:100]
-    # print(resSorted)
-    # res = [(str(doc_id), inverted.id_to_title[doc_id]) for doc_id, cs in resSorted]
-    bm25_body = BM25(inverted,tokenized_query);
 
+    bm25_body = BM25(inverted,tokenized_query);
     scores = bm25_body.score_calc_per_candidate()
-    sort_list = sorted(scores.items(), key=lambda item: item[1], reverse=True)
+    # sort_list = sorted(scores.items(), key=lambda item: item[1], reverse=True)
+    # doc_list = [tup[0] for tup in sort_list]
+    
+    #calculate max view of all the pages
+    max_view = 0
+    for key in scores:
+        doc_id = key
+        if doc_id in wid2pv:
+            if max_view < wid2pv[doc_id]:
+                max_view = wid2pv[doc_id]
+    
+    total_id_score = {}
+    #calculate score for each doc by bm25 and page view
+    for doc_id in scores:
+        total_id_score[doc_id] = (wid2pv.get(doc_id,0)/max_view)*0.3 + (scores[doc_id])*0.7
+    
+    sort_list = sorted(total_id_score.items(), key=lambda item: item[1], reverse=True)
     doc_list = [tup[0] for tup in sort_list]
+
 
     i = 0
     for (doc_id,score) in sort_list:
@@ -91,6 +106,7 @@ def search():
             break
         res.append((doc_id, inverted.id_to_title[doc_id]))
         i += 1
+        
 
     if i < 100:
         for doc_id in inverted.DL:
@@ -101,11 +117,7 @@ def search():
             i += 1
 
     return jsonify(res)
-
-
-
-    # END SOLUTION
-
+ 
 @app.route("/search_body")
 def search_body():
     ''' Returns up to a 100 search results for the query using TFIDF AND COSINE
@@ -166,10 +178,6 @@ def search_body():
 
 
 def token_query(query):
-    english_stopwords = frozenset(stopwords.words('english'))
-    corpus_stopwords = ['category', 'references', 'also', 'links', 'extenal', 'see', 'thumb']
-    RE_WORD = re.compile(r"""[\#\@\w](['\-]?\w){2,24}""", re.UNICODE)
-    all_stopwords = english_stopwords.union(corpus_stopwords)
     tokensQ = [token.group() for token in RE_WORD.finditer(query.lower())]
     filteredQ = [tok for tok in tokensQ if tok not in all_stopwords]
 
@@ -221,22 +229,17 @@ def search_title():
         return jsonify(res)
     # BEGIN SOLUTION
     # collecting docs that query's words appear in
-    query_binary_similarity = {}
-    for word in tokenized_query:
-        posting_lst = read_posting_list(inverted_index_title, word)
-        if len(posting_lst) > 0:
-            for doc in posting_lst:
-                if doc[0] in query_binary_similarity:
-                    query_binary_similarity[doc[0]] += 1
-                else:
-                    query_binary_similarity[doc[0]] = 1
+    id_freq_dic = {}
+    for term in tokenized_query:
+        posting_list = read_posting_list(inverted_index_title, term)
+        for doc in posting_list:
+            id_freq_dic[doc[0]] = id_freq_dic.get(doc[0], 0) += 1
 
-    if len(query_binary_similarity) == 0:
+    if len(id_freq_dic) == 0:
         return jsonify(res)
 
-    sorted_query_similarity = {k: v for k, v in
-                               sorted(query_binary_similarity.items(), key=lambda item: item[1], reverse=True)}
-    for key in sorted_query_similarity:
+    sort_by_freq = {k: v for k, v in sorted(id_freq_dic.items(), key=lambda tup: tup[1], reverse=True)}
+    for key in sort_by_freq:
         res.append((key, inverted_index_title.docTitle[key]))
 
     # END SOLUTION
@@ -271,8 +274,8 @@ def search_anchor():
     # BEGIN SOLUTION
     # collecting docs that query's words appear in
     query_binary_similarity = {}
-    for word in tokenized_query:
-        posting_lst = read_posting_list(inverted_index_title, word)
+    for term in tokenized_query:
+        posting_lst = read_posting_list(inverted_index_title, term)
         if len(posting_lst) > 0:
             for doc in posting_lst:
                 if doc[0] in query_binary_similarity:
@@ -324,7 +327,7 @@ def get_pagerank():
     for doc_id in wiki_ids:
         x = df.loc[df['doc_id']==int(doc_id)]
         dff = pd.DataFrame(x)
-        y = x['rank'].values
+        y = dff['rank'].values
         if(len(y)!= 0):
             res.append(y[0])
         else:
