@@ -100,23 +100,79 @@ def search():
     doc_list = [tup[0] for tup in sort_list]
 
 
-    i = 0
-    for (doc_id,score) in sort_list:
-        if i >= 100:
-            break
-        res.append((doc_id, inverted.id_to_title[doc_id]))
-        i += 1
-        
-
-    if i < 100:
-        for doc_id in inverted.DL:
-            if i >= 100:
-                break
-            if doc_id not in doc_list:
-                res.append((doc_id, inverted.id_to_title[doc_id]))
-            i += 1
-
     return jsonify(res)
+    res = []
+    query = request.args.get('query', '')
+    if len(query) == 0:
+        return jsonify(res)
+    # BEGIN SOLUTION
+
+    tokenized_query = token_query(query)
+    if len(tokenized_query) == 0:
+        return jsonify(res)
+    # BEGIN SOLUTION
+    # collecting docs that query's words appear in
+    query_binary_similarity = {}
+    for word in tokenized_query:
+        try:
+            posting_lst = read_posting_list(inverted_index_title, word)
+            if len(posting_lst) > 0:
+                for doc in posting_lst:
+                    if doc[0] in query_binary_similarity:
+                        query_binary_similarity[doc[0]] += 1
+                    else:
+                        query_binary_similarity[doc[0]] = 1
+        except:
+            pass
+    sorted_query_similarity = {k: v for k, v in
+                               sorted(query_binary_similarity.items(), key=lambda item: item[1], reverse=True)}
+    # ------------------------------------------------------------------------body--------------------------------------------------------
+    body = []
+    cosimiMone = {}
+    tokenized_query = token_query(query)
+    if len(tokenized_query) == 0:
+        return jsonify([])
+    word_weight_in_query = {}
+    cosinesim = {}
+    word_appearance_in_query = Counter(tokenized_query)
+    for word in word_appearance_in_query:
+        word_weight_in_query[word] = word_appearance_in_query[word] / len(tokenized_query)
+
+    # create the mona of the cosinsimilarity for each doc that have word from the query
+    query_Dom = 0
+    for word, weigth in word_weight_in_query.items():
+        query_Dom = query_Dom + math.pow(weigth, 2)
+        try:
+            postlist = read_posting_list(inverted, word)
+            for doc_id, dfi in postlist:
+                cosimiMone[doc_id] = cosimiMone.get(doc_id, 0) + ((dfi / inverted.DL[doc_id]) * weigth)
+        except:
+            pass
+    # make all the cosinsimilarity for each doc
+    query_Dom_sqr = math.sqrt(query_Dom)
+    resSorted = []
+    for doc_id, mona in cosimiMone.items():
+        dominator = math.sqrt(inverted.tfidf_dom[doc_id] * query_Dom)
+        resultSimiliarirt = cosimiMone[doc_id] / dominator
+        var = (doc_id, resultSimiliarirt)
+        resSorted.append(var)
+
+    resSorted = sorted(resSorted, key=lambda tup: tup[1], reverse=True)
+    resSorted = resSorted[0:100]
+    # ------------------------------------------------------------------------------------put together title and body-----------------------
+
+    joinDic = {}
+    for (doc_id, sim) in resSorted:
+        joinDic[doc_id] = sim * 0.3 + sorted_query_similarity.get(doc_id, 0) * 0.55 + total_id_score.get(doc_id, 0)*0.15
+    joinList = list(joinDic.items())
+    joinList = sorted(resSorted, key=lambda tup: tup[1], reverse=True)
+
+    joinList = joinList[0:100]
+    finalList = [(doc_id, inverted.id_to_title[doc_id]) for doc_id, cs in joinList]
+    return jsonify(finalList)
+
+
+# END SOLUTION
  
 @app.route("/search_body")
 def search_body():
